@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transformer From Scratch</title>
+    <meta name="description" content="Interactive web interface for a Transformer language model built from scratch in PyTorch.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ── Reset & Base ───────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a1f35;
+            --bg-card-hover: #1f2544;
+            --bg-input: #0d1224;
+            --border: #2a3050;
+            --border-glow: #6366f1;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.3);
+            --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.15);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ── Animated Background ────────────────────────────────── */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+            z-index: -1;
+            animation: bgPulse 15s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgPulse {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-2%, -1%) rotate(1deg); }
+        }
+
+        /* ── Header ─────────────────────────────────────────────── */
+        .header {
+            text-align: center;
+            padding: 48px 24px 32px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            font-weight: 400;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            color: #a5b4fc;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            margin-top: 12px;
+        }
+
+        .badge .dot {
+            width: 7px; height: 7px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* ── Layout ─────────────────────────────────────────────── */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px 60px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .header h1 { font-size: 1.8rem; }
+        }
+
+        /* ── Card ───────────────────────────────────────────────── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 18px;
+            color: var(--text-primary);
+        }
+
+        .card-title .icon {
+            font-size: 1.25rem;
+        }
+
+        .card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        /* ── Form Controls ──────────────────────────────────────── */
+        label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            padding: 10px 14px;
+            font-family: inherit;
+            font-size: 0.92rem;
+            transition: var(--transition);
+            outline: none;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        textarea {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.88rem;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        /* ── Buttons ────────────────────────────────────────────── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 24px;
+            border: none;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            letter-spacing: 0.01em;
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: white;
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px var(--accent-glow);
+        }
+
+        .btn-primary:active { transform: translateY(0); }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        /* ── Output Area ────────────────────────────────────────── */
+        .output-area {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px;
+            min-height: 120px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.88rem;
+            line-height: 1.7;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            word-break: break-word;
+            position: relative;
+        }
+
+        .output-area.empty {
+            color: var(--text-muted);
+            font-style: italic;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ── Stats Grid ─────────────────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        .stat {
+            background: var(--bg-input);
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+            border: 1px solid transparent;
+            transition: var(--transition);
+        }
+
+        .stat:hover { border-color: rgba(99, 102, 241, 0.2); }
+
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-top: 4px;
+        }
+
+        /* ── Slider ─────────────────────────────────────────────── */
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            border: none;
+            padding: 0;
+            flex: 1;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+
+        .slider-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent-primary);
+            min-width: 36px;
+            text-align: right;
+        }
+
+        /* ── Spinner ────────────────────────────────────────────── */
+        .spinner {
+            display: inline-block;
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Method Selector ────────────────────────────────────── */
+        .method-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .method-btn {
+            flex: 1;
+            padding: 9px 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            text-align: center;
+        }
+
+        .method-btn:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+
+        .method-btn.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: var(--accent-primary);
+            color: #a5b4fc;
+        }
+
+        /* ── Status bar ─────────────────────────────────────────── */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            margin-top: 14px;
+        }
+
+        .status-bar.info { background: rgba(59, 130, 246, 0.1); color: #93c5fd; }
+        .status-bar.success { background: rgba(16, 185, 129, 0.1); color: #6ee7b7; }
+        .status-bar.warning { background: rgba(245, 158, 11, 0.1); color: #fcd34d; }
+        .status-bar.error { background: rgba(239, 68, 68, 0.1); color: #fca5a5; }
+
+        /* ── Architecture Diagram ───────────────────────────────── */
+        .arch-flow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 12px 0;
+        }
+
+        .arch-block {
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 8px;
+            padding: 8px 20px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: #c7d2fe;
+            text-align: center;
+            min-width: 200px;
+        }
+
+        .arch-arrow { color: var(--text-muted); font-size: 1.1rem; }
+
+        /* ── Footer ─────────────────────────────────────────────── */
+        .footer {
+            text-align: center;
+            padding: 32px 24px;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer a { color: var(--accent-primary); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<header class="header">
+    <h1>⚡ Transformer From Scratch</h1>
+    <p>A complete Transformer language model built from scratch in PyTorch</p>
+    <div class="badge" id="model-badge">
+        <span class="dot"></span>
+        <span id="badge-text">Loading model...</span>
+    </div>
+</header>
+
+<!-- ── Main Content ───────────────────────────────────────────── -->
+<div class="container">
+
+    <!-- Model Info -->
+    <div class="card full-width" style="margin-bottom: 20px;">
+        <div class="card-title"><span class="icon">📊</span> Model Overview</div>
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat"><div class="stat-value" id="stat-params">—</div><div class="stat-label">Parameters</div></div>
+            <div class="stat"><div class="stat-value" id="stat-vocab">—</div><div class="stat-label">Vocab Size</div></div>
+            <div class="stat"><div class="stat-value" id="stat-dmodel">—</div><div class="stat-label">d_model</div></div>
+            <div class="stat"><div class="stat-value" id="stat-heads">—</div><div class="stat-label">Heads</div></div>
+            <div class="stat"><div class="stat-value" id="stat-layers">—</div><div class="stat-label">Layers</div></div>
+            <div class="stat"><div class="stat-value" id="stat-device">—</div><div class="stat-label">Device</div></div>
+        </div>
+    </div>
+
+    <div class="grid">
+
+        <!-- ── Generate Panel ─────────────────────────────────── -->
+        <div class="card">
+            <div class="card-title"><span class="icon">✍️</span> Generate Text</div>
+
+            <div class="form-group">
+                <label>Prompt</label>
+                <textarea id="prompt" rows="3" placeholder="Enter a prompt... e.g. 'To be or not to be'">To be or not</textarea>
+            </div>
+
+            <label>Decoding Method</label>
+            <div class="method-selector">
+                <button class="method-btn" data-method="greedy" onclick="selectMethod('greedy')">Greedy</button>
+                <button class="method-btn active" data-method="top_k" onclick="selectMethod('top_k')">Top-k</button>
+                <button class="method-btn" data-method="temperature" onclick="selectMethod('temperature')">Temperature</button>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Temperature</label>
+                    <div class="slider-group">
+                        <input type="range" id="temperature" min="0.1" max="2.0" step="0.1" value="0.8">
+                        <span class="slider-value" id="temp-val">0.8</span>
+                    </div>
+                </div>
+                <div>
+                    <label>Top-k</label>
+                    <div class="slider-group">
+                        <input type="range" id="top_k" min="1" max="50" step="1" value="10">
+                        <span class="slider-value" id="topk-val">10</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Max Tokens</label>
+                <div class="slider-group">
+                    <input type="range" id="max_tokens" min="10" max="300" step="10" value="100">
+                    <span class="slider-value" id="maxtok-val">100</span>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="generate-btn" onclick="generateText()" style="width: 100%;">
+                ✨ Generate
+            </button>
+        </div>
+
+        <!-- ── Output Panel ───────────────────────────────────── -->
+        <div class="card">
+            <div class="card-title"><span class="icon">📜</span> Generated Output</div>
+            <div class="output-area empty" id="output">Generated text will appear here...</div>
+            <div id="gen-status"></div>
+        </div>
+
+        <!-- ── Train Panel ────────────────────────────────────── -->
+        <div class="card">
+            <div class="card-title"><span class="icon">🏋️</span> Train Model</div>
+
+            <div class="form-row">
+                <div>
+                    <label>Epochs</label>
+                    <input type="number" id="train-epochs" value="3" min="1" max="20">
+                </div>
+                <div>
+                    <label>d_model</label>
+                    <select id="train-dmodel">
+                        <option value="64">64</option>
+                        <option value="128" selected>128</option>
+                        <option value="256">256</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Heads</label>
+                    <select id="train-heads">
+                        <option value="2">2</option>
+                        <option value="4" selected>4</option>
+                        <option value="8">8</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Layers</label>
+                    <select id="train-layers">
+                        <option value="2">2</option>
+                        <option value="4" selected>4</option>
+                        <option value="6">6</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="train-btn" onclick="startTraining()" style="width: 100%;">
+                🚀 Start Training
+            </button>
+
+            <div id="train-status"></div>
+        </div>
+
+        <!-- ── Architecture Panel ─────────────────────────────── -->
+        <div class="card">
+            <div class="card-title"><span class="icon">🏗️</span> Architecture</div>
+            <div class="arch-flow">
+                <div class="arch-block">Input Tokens</div>
+                <div class="arch-arrow">↓</div>
+                <div class="arch-block">Embedding × √d_model</div>
+                <div class="arch-arrow">↓</div>
+                <div class="arch-block">+ Positional Encoding</div>
+                <div class="arch-arrow">↓</div>
+                <div class="arch-block" style="border-color: rgba(139, 92, 246, 0.4);">
+                    Decoder Layer × N<br>
+                    <small style="opacity:0.7;">Self-Attn → Add&Norm → FFN → Add&Norm</small>
+                </div>
+                <div class="arch-arrow">↓</div>
+                <div class="arch-block">Layer Norm</div>
+                <div class="arch-arrow">↓</div>
+                <div class="arch-block">Linear → Logits</div>
+                <div class="arch-arrow">↓</div>
+                <div class="arch-block" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #6ee7b7;">
+                    Softmax → Next Token
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer class="footer">
+    Built from scratch following <a href="https://arxiv.org/abs/1706.03762" target="_blank">Attention Is All You Need</a> •
+    Powered by PyTorch + Flask
+</footer>
+
+<!-- ── JavaScript ─────────────────────────────────────────────── -->
+<script>
+    // ── Slider updates ───────────────────────────────────────
+    document.getElementById('temperature').addEventListener('input', e => {
+        document.getElementById('temp-val').textContent = e.target.value;
+    });
+    document.getElementById('top_k').addEventListener('input', e => {
+        document.getElementById('topk-val').textContent = e.target.value;
+    });
+    document.getElementById('max_tokens').addEventListener('input', e => {
+        document.getElementById('maxtok-val').textContent = e.target.value;
+    });
+
+    let selectedMethod = 'top_k';
+
+    function selectMethod(method) {
+        selectedMethod = method;
+        document.querySelectorAll('.method-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.method === method);
+        });
+    }
+
+    // ── Load model info ──────────────────────────────────────
+    async function loadModelInfo() {
+        try {
+            const res = await fetch('/api/model-info');
+            const data = await res.json();
+            if (data.loaded) {
+                document.getElementById('stat-params').textContent = (data.total_params / 1e6).toFixed(1) + 'M';
+                document.getElementById('stat-vocab').textContent = data.vocab_size.toLocaleString();
+                document.getElementById('stat-dmodel').textContent = data.d_model;
+                document.getElementById('stat-heads').textContent = data.n_heads;
+                document.getElementById('stat-layers').textContent = data.n_layers;
+                document.getElementById('stat-device').textContent = data.device.toUpperCase();
+                document.getElementById('badge-text').textContent = 'Model loaded • ' + data.device.toUpperCase();
+            } else {
+                document.getElementById('badge-text').textContent = 'No model loaded';
+            }
+        } catch (e) {
+            document.getElementById('badge-text').textContent = 'Connection error';
+        }
+    }
+
+    // ── Generate text ────────────────────────────────────────
+    async function generateText() {
+        const btn = document.getElementById('generate-btn');
+        const output = document.getElementById('output');
+        const status = document.getElementById('gen-status');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Generating...';
+        output.className = 'output-area empty';
+        output.textContent = 'Generating...';
+
+        try {
+            const res = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: document.getElementById('prompt').value,
+                    max_tokens: parseInt(document.getElementById('max_tokens').value),
+                    method: selectedMethod,
+                    temperature: parseFloat(document.getElementById('temperature').value),
+                    top_k: parseInt(document.getElementById('top_k').value),
+                }),
+            });
+
+            const data = await res.json();
+            if (data.error) {
+                output.className = 'output-area';
+                output.textContent = '❌ ' + data.error;
+                status.innerHTML = '<div class="status-bar error">Error generating text</div>';
+            } else {
+                output.className = 'output-area';
+                output.textContent = data.text;
+                status.innerHTML = `<div class="status-bar success">✓ Generated in ${data.time}s using ${data.method}</div>`;
+            }
+        } catch (e) {
+            output.className = 'output-area';
+            output.textContent = '❌ Connection error: ' + e.message;
+            status.innerHTML = '<div class="status-bar error">Failed to connect to server</div>';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '✨ Generate';
+        }
+    }
+
+    // ── Start training ───────────────────────────────────────
+    async function startTraining() {
+        const btn = document.getElementById('train-btn');
+        const status = document.getElementById('train-status');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Training...';
+        status.innerHTML = '<div class="status-bar warning">⏳ Training in progress... This may take several minutes.</div>';
+
+        try {
+            const res = await fetch('/api/train', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    epochs: parseInt(document.getElementById('train-epochs').value),
+                    d_model: parseInt(document.getElementById('train-dmodel').value),
+                    n_heads: parseInt(document.getElementById('train-heads').value),
+                    n_layers: parseInt(document.getElementById('train-layers').value),
+                    d_ff: parseInt(document.getElementById('train-dmodel').value) * 4,
+                }),
+            });
+
+            const data = await res.json();
+            if (data.error) {
+                status.innerHTML = `<div class="status-bar error">❌ ${data.error}</div>`;
+                btn.disabled = false;
+                btn.innerHTML = '🚀 Start Training';
+            } else {
+                status.innerHTML = `<div class="status-bar info">🏋️ Training ${data.epochs} epochs... Check terminal for progress.</div>`;
+                pollTrainingStatus();
+            }
+        } catch (e) {
+            status.innerHTML = `<div class="status-bar error">❌ ${e.message}</div>`;
+            btn.disabled = false;
+            btn.innerHTML = '🚀 Start Training';
+        }
+    }
+
+    function pollTrainingStatus() {
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch('/api/training-status');
+                const data = await res.json();
+                const status = document.getElementById('train-status');
+
+                if (!data.training) {
+                    clearInterval(interval);
+                    const btn = document.getElementById('train-btn');
+                    btn.disabled = false;
+                    btn.innerHTML = '🚀 Start Training';
+
+                    if (data.history) {
+                        const lastLoss = data.history.val_loss[data.history.val_loss.length - 1].toFixed(4);
+                        const lastPPL = data.history.perplexity[data.history.perplexity.length - 1].toFixed(1);
+                        status.innerHTML = `<div class="status-bar success">✅ Training complete! Val Loss: ${lastLoss} | PPL: ${lastPPL}</div>`;
+                    } else {
+                        status.innerHTML = '<div class="status-bar success">✅ Training complete!</div>';
+                    }
+                    loadModelInfo();
+                }
+            } catch (e) { /* ignore polling errors */ }
+        }, 5000);
+    }
+
+    // ── Init ─────────────────────────────────────────────────
+    loadModelInfo();
+</script>
+</body>
+</html>

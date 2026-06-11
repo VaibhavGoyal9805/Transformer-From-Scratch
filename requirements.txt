@@ -1,0 +1,17 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Transformer From Scratch — Dependencies
+# ──────────────────────────────────────────────────────────────────────────────
+# Install: pip install -r requirements.txt
+
+# Core
+torch>=2.0.0
+numpy>=1.24.0
+
+# Visualisation
+matplotlib>=3.7.0
+
+# Web Interface
+flask>=3.0.0
+
+# Utilities (stdlib — listed for reference only)
+# collections, json, re, os, sys, math, time
