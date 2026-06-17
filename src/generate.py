@@ -41,7 +41,7 @@ def generate_text(
     max_tokens: int = 100,
     method: str = "greedy",
     temperature: float = 0.8,
-    top_k: int = 10,
+    top_k: int = 40,
     device: Optional[torch.device] = None,
 ) -> str:
     """

@@ -133,17 +133,19 @@ def evaluate(model, dataloader, criterion, device):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def train(
-    epochs: int       = 10,
-    d_model: int      = 128,
-    n_heads: int      = 4,
-    d_ff: int         = 512,
-    n_layers: int     = 4,
+    epochs: int       = 15,
+    d_model: int      = 256,
+    n_heads: int      = 8,
+    d_ff: int         = 1024,
+    n_layers: int     = 6,
     dropout: float    = 0.1,
-    seq_len: int      = 64,
-    batch_size: int   = 64,
+    seq_len: int      = 128,
+    batch_size: int   = 32,
     warmup_steps: int = 500,
     clip_grad: float  = 1.0,
     save_every: int   = 5,
+    weight_decay: float = 0.01,
+    label_smoothing: float = 0.1,
     device_str: str   = "auto",
 ):
     """
@@ -191,8 +193,8 @@ def train(
     print(f"[Trainer] Model parameters: {total_params:,}")
 
     # ── Loss, Optimiser, Scheduler ────────────────────────────────────────
-    criterion = nn.CrossEntropyLoss(ignore_index=pad_id)
-    optimiser = torch.optim.Adam(model.parameters(), lr=0.0, betas=(0.9, 0.98), eps=1e-9)
+    criterion = nn.CrossEntropyLoss(ignore_index=pad_id, label_smoothing=label_smoothing)
+    optimiser = torch.optim.AdamW(model.parameters(), lr=0.0, betas=(0.9, 0.98), eps=1e-9, weight_decay=weight_decay)
     scheduler = NoamScheduler(optimiser, d_model, warmup_steps)
 
     # ── Training loop ─────────────────────────────────────────────────────
