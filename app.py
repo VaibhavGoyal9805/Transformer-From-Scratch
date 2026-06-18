@@ -50,7 +50,7 @@ def _get_device():
     return torch.device("cpu")
 
 
-def _load_or_build_model(d_model=128, n_heads=4, d_ff=512, n_layers=4, dropout=0.1, max_len=164):
+def _load_or_build_model(d_model=256, n_heads=8, d_ff=1024, n_layers=6, dropout=0.1, max_len=228):
     """Build tokenizer and model. Load checkpoint if available."""
     device = _get_device()
     _state["device"] = device
@@ -155,10 +155,10 @@ def api_train():
 
     data = request.json or {}
     epochs  = min(int(data.get("epochs", 3)), 20)
-    d_model = int(data.get("d_model", 128))
-    n_heads = int(data.get("n_heads", 4))
-    d_ff    = int(data.get("d_ff", 512))
-    n_layers = int(data.get("n_layers", 4))
+    d_model = int(data.get("d_model", 256))
+    n_heads = int(data.get("n_heads", 8))
+    d_ff    = int(data.get("d_ff", 1024))
+    n_layers = int(data.get("n_layers", 6))
 
     def _train_thread():
         _state["training"] = True
@@ -170,7 +170,7 @@ def api_train():
                 d_ff=d_ff,
                 n_layers=n_layers,
                 dropout=0.1,
-                seq_len=64,
+                seq_len=128,
                 batch_size=64,
                 warmup_steps=500,
             )
@@ -214,7 +214,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("Transformer From Scratch — Web Interface")
     print("=" * 60)
-    _load_or_build_model(d_model=128, n_heads=4, d_ff=512, n_layers=4)
+    _load_or_build_model(d_model=256, n_heads=8, d_ff=1024, n_layers=6)
     print(f"[Web] Model loaded: {_state['config']['total_params']:,} parameters")
     print("[Web] Starting server at http://localhost:5001")
     print("=" * 60)
