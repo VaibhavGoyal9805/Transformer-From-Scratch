@@ -1,8 +1,21 @@
-# 🤖 Transformer From Scratch
+# 🎭 Transformer From Scratch
 
-A **complete Transformer architecture** implemented from scratch in PyTorch — no Hugging Face, no pre-built layers. Every component is hand-coded following the original *"Attention Is All You Need"* paper (Vaswani et al., 2017).
+A **complete Transformer architecture** implemented entirely from scratch in PyTorch — no Hugging Face, no pre-built layers. Every component is hand-coded following the original *"Attention Is All You Need"* paper (Vaswani et al., 2017).
+
+This project culminates in an **11.5-million parameter** Language Model trained on Tiny Shakespeare, complete with a beautiful, interactive Flask Web UI for generating text.
+
+![Web Interface](https://img.shields.io/badge/Web_UI-Included-blue?style=for-the-badge)
+![PyTorch](https://img.shields.io/badge/PyTorch-1.13%2B-red?style=for-the-badge&logo=pytorch)
+![Parameters](https://img.shields.io/badge/Parameters-11.5M-brightgreen?style=for-the-badge)
 
 ## ✨ Features
+
+- **From-Scratch Implementation:** Everything from Multi-Head Attention to Sinusoidal Positional Encoding is built using raw PyTorch primitives.
+- **Optimized Architecture:** Scaled up to 11.5M parameters (`d_model=256`, `n_heads=8`, `n_layers=6`) with AdamW, Weight Decay, and Label Smoothing.
+- **Kaggle/Colab Ready:** Includes a Jupyter notebook (`notebooks/colab_training.ipynb`) configured for fast cloud-GPU training.
+- **Interactive Web App:** A sleek, modern Flask interface to chat with your model and tweak decoding methods (`Greedy`, `Top-k`, `Temperature`).
+
+## 📁 Architecture Breakdown
 
 | Component | File | Status |
 |-----------|------|--------|
@@ -19,161 +32,65 @@ A **complete Transformer architecture** implemented from scratch in PyTorch — 
 | Text Generation (Greedy/Top-k/Temp) | `src/generate.py` | ✅ |
 | Web Interface | `app.py` | ✅ |
 
-## 📁 Project Structure
-
-```
-Transformer-From-Scratch/
-├── app.py                    ← Flask web interface
-├── requirements.txt
-├── README.md
-├── data/
-│   ├── tiny_shakespeare.txt  ← 1.1 MB Shakespeare corpus
-│   └── wikitext2/
-├── src/
-│   ├── tokenizer.py          ← Phase 1: Word-level tokenizer
-│   ├── dataset.py            ← Phase 1: PyTorch Dataset + DataLoaders
-│   ├── positional_encoding.py← Phase 2: Sinusoidal + Learned PE
-│   ├── attention.py          ← Phase 3: Scaled Dot-Product Attention
-│   ├── multihead_attention.py← Phase 4: Multi-Head Attention
-│   ├── feedforward.py        ← Phase 5: Feed-Forward Network
-│   ├── encoder.py            ← Phase 6: Encoder Block + Stack
-│   ├── decoder.py            ← Phase 7: Decoder Block + Stack
-│   ├── transformer.py        ← Phase 8: Full Transformer + LM
-│   ├── trainer.py            ← Phase 9: Training Pipeline
-│   └── generate.py           ← Phase 10: Text Generation
-├── checkpoints/              ← Saved model weights & curves
-├── static/                   ← Web UI assets (CSS, JS)
-└── templates/                ← Web UI HTML
-```
-
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
 
 ```bash
+git clone https://github.com/VaibhavGoyal9805/Transformer-From-Scratch.git
+cd Transformer-From-Scratch
 pip install -r requirements.txt
 ```
 
-### 2. Test Individual Modules
-
-```bash
-cd Transformer-From-Scratch
-
-python src/positional_encoding.py    # Phase 2
-python src/attention.py              # Phase 3
-python src/multihead_attention.py    # Phase 4
-python src/feedforward.py            # Phase 5
-python src/encoder.py                # Phase 6
-python src/decoder.py                # Phase 7
-python src/transformer.py            # Phase 8
-python src/dataset.py                # Dataset
-python src/generate.py               # Generation
-```
-
-### 3. Train the Model
-
-**Quick smoke test (2 epochs):**
-```bash
-python src/trainer.py
-```
-
-**Full training (from Python):**
-```python
-from src.trainer import train
-
-model, tokenizer, history = train(
-    epochs=10,
-    d_model=128,
-    n_heads=4,
-    d_ff=512,
-    n_layers=4,
-    seq_len=64,
-    batch_size=64,
-)
-```
-
-### 4. Generate Text
-
-```python
-from src.generate import generate_text
-
-text = generate_text(
-    model, tokenizer,
-    prompt="To be or not",
-    max_tokens=100,
-    method="top_k",   # "greedy", "top_k", or "temperature"
-    top_k=10,
-    temperature=0.8,
-)
-print(text)
-```
-
-### 5. Launch Web Interface
+### 2. Launch the Web App
+If you already have a trained checkpoint (e.g., `checkpoints/transformer_lm_epoch15.pt`), you can immediately start the web interface:
 
 ```bash
 python app.py
 ```
+*Navigate to `http://localhost:5001` in your browser.*
 
-Open **http://localhost:5000** in your browser. The web UI lets you:
-- 🏋️ Train the model with custom hyperparameters
-- ✍️ Generate Shakespeare-style text with different strategies
-- 📊 View model architecture and parameters
+### 3. Train the Model Locally
 
-## 🏗️ Architecture Overview
+```python
+from src.trainer import train
 
-```
-Input Tokens
-     ↓
-Embedding × √d_model
-     ↓
-+ Positional Encoding (sinusoidal)
-     ↓
-┌─────────────────────────────┐
-│   Encoder Layer × N         │
-│   ┌───────────────────────┐ │
-│   │ Multi-Head Attention  │ │
-│   │ Add & Layer Norm      │ │
-│   │ Feed-Forward Network  │ │
-│   │ Add & Layer Norm      │ │
-│   └───────────────────────┘ │
-└─────────────────────────────┘
-     ↓
-┌─────────────────────────────┐
-│   Decoder Layer × N         │
-│   ┌───────────────────────┐ │
-│   │ Masked Self-Attention │ │
-│   │ Add & Layer Norm      │ │
-│   │ Cross-Attention       │ │
-│   │ Add & Layer Norm      │ │
-│   │ Feed-Forward Network  │ │
-│   │ Add & Layer Norm      │ │
-│   └───────────────────────┘ │
-└─────────────────────────────┘
-     ↓
-Linear → Softmax → Output Probabilities
+model, tokenizer, history = train(
+    epochs=15,
+    d_model=256,
+    n_heads=8,
+    d_ff=1024,
+    n_layers=6,
+    dropout=0.1,
+    seq_len=128,
+    batch_size=64, 
+    warmup_steps=4000,
+    weight_decay=0.01,
+    label_smoothing=0.1
+)
 ```
 
-## 📊 Expected Results
+*(Note: Training the 11.5M parameter model locally takes several hours. We highly recommend using the provided Kaggle notebook for free cloud GPU training).*
 
-| Dataset | Expected Perplexity |
-|---------|-------------------|
-| Tiny Shakespeare | 3–8 |
-| WikiText-2 | 40–100 |
+### 4. Generate Text via Python
 
-## 🛠️ Tech Stack
+```python
+import torch
+from src.generate import generate_text
 
-- **Python 3.10+**
-- **PyTorch 2.0+** — model, training, tensors
-- **NumPy** — numerical utilities
-- **Matplotlib** — training curves
-- **Flask** — web interface
+# Assuming model and tokenizer are already loaded
+text = generate_text(
+    model, 
+    tokenizer, 
+    prompt="this life", 
+    max_tokens=50, 
+    method="top_k", 
+    top_k=40, 
+    temperature=0.8
+)
+print(text)
+```
 
-## 📖 References
-
-- Vaswani et al., *"Attention Is All You Need"*, NeurIPS 2017
-- [The Annotated Transformer](https://nlp.seas.harvard.edu/annotated-transformer/)
-- [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/)
-
-## 📝 License
-
-This project is for educational purposes.
+## 🧠 What's Next?
+- Try implementing Byte-Pair Encoding (BPE) to replace the word-level tokenizer.
+- Scale up to a 50M+ parameter model on a larger dataset (like WikiText-103).
