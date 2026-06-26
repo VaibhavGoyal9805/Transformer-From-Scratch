@@ -24,6 +24,7 @@ if _SRC_DIR not in sys.path:
 from flask import Flask, render_template, request, jsonify
 
 import torch
+torch.set_num_threads(1)
 from transformer import TransformerLM
 from tokenizer import WordTokenizer, DATA_PATH
 from generate import generate_text
