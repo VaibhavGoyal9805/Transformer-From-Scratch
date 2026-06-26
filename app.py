@@ -210,12 +210,27 @@ def training_status():
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+print("=" * 60)
+print("Transformer From Scratch — Web Interface")
+print("=" * 60)
+
+# ── Reassemble Model Checkpoint ────────────────────────────────────────────────
+ckpt_path = os.path.join(_APP_DIR, "checkpoints", "transformer_lm_epoch15.pt")
+if not os.path.exists(ckpt_path):
+    ckpt_dir = os.path.join(_APP_DIR, "checkpoints")
+    chunks = sorted([f for f in os.listdir(ckpt_dir) if f.startswith("chunk_transformer_lm_epoch15.pt_")])
+    if chunks:
+        print(f"[Web] Reassembling model from {len(chunks)} chunks...")
+        with open(ckpt_path, 'wb') as outfile:
+            for chunk in chunks:
+                with open(os.path.join(ckpt_dir, chunk), 'rb') as infile:
+                    outfile.write(infile.read())
+        print("[Web] Reassembly complete.")
+
+_load_or_build_model(d_model=256, n_heads=8, d_ff=1024, n_layers=6)
+print(f"[Web] Model loaded: {_state['config']['total_params']:,} parameters")
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5001))
+    print(f"[Web] Starting server at http://0.0.0.0:{port}")
     print("=" * 60)
-    print("Transformer From Scratch — Web Interface")
-    print("=" * 60)
-    _load_or_build_model(d_model=256, n_heads=8, d_ff=1024, n_layers=6)
-    print(f"[Web] Model loaded: {_state['config']['total_params']:,} parameters")
-    print("[Web] Starting server at http://localhost:5001")
-    print("=" * 60)
-    app.run(debug=False, port=5001, host="0.0.0.0")
+    app.run(debug=False, port=port, host="0.0.0.0")

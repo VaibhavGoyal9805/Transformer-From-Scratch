@@ -29,6 +29,7 @@ Thumbs.db
 
 # Model checkpoints (large binary files)
 checkpoints/*.pt
+!checkpoints/chunk_*.pt_*
 
 # Keep the directory structure
 !checkpoints/.gitkeep
